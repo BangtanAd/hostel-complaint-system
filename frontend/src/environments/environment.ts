@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: '/api',
+  apiUrl: 'https://hostel-complaint-api-kw1i.onrender.com/api',
 };
