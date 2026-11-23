@@ -31,7 +31,6 @@ import { AuthService } from '../../services/auth.service';
               [(ngModel)]="email"
               name="email"
               required
-              placeholder="v.bts@bighit.edu"
               class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
             />
           </div>
@@ -43,7 +42,6 @@ import { AuthService } from '../../services/auth.service';
               [(ngModel)]="password"
               name="password"
               required
-              placeholder="••••••••"
               class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
             />
           </div>
