@@ -9,7 +9,7 @@ import { environment } from '../../environments/environment';
   providedIn: 'root',
 })
 export class AuthService {
-  private apiUrl = 'https://hostel-complaint-api-kw1i.onrender.com/api/auth';
+  private apiUrl = '/api/auth';
   private storageKey = 'hostel_user';
 
   constructor(private http: HttpClient, private router: Router) {}

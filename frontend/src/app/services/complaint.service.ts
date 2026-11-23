@@ -8,7 +8,7 @@ import { environment } from '../../environments/environment';
   providedIn: 'root',
 })
 export class ComplaintService {
-  private baseUrl = 'https://hostel-complaint-api-kw1i.onrender.com/api';
+  private baseUrl = '/api';
 
   constructor(private http: HttpClient) {}
 
