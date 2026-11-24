@@ -54,6 +54,17 @@ export class ComplaintService {
     return this.http.put<Complaint>(`${this.baseUrl}/complaints/${id}`, data);
   }
 
+  submitFeedback(
+    complaintId: string,
+    rating: number,
+    comment: string
+  ): Observable<Complaint> {
+    return this.http.post<Complaint>(
+      `${this.baseUrl}/complaints/${complaintId}/feedback`,
+      { rating, comment }
+    );
+  }
+
   getStats(): Observable<ComplaintStats> {
     return this.http.get<ComplaintStats>(`${this.baseUrl}/complaints/stats`);
   }

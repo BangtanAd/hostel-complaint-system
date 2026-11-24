@@ -5,34 +5,39 @@ require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 
-// Explicit CORS & Preflight Headers for Vercel Frontend and Android APK
+// Restrict CORS to approved Vercel, local dev, and Capacitor mobile origins
+const allowedOrigins = [
+  'https://hostel-complaint-system-one.vercel.app',
+  'http://localhost:4200',
+  'http://localhost',
+  'capacitor://localhost',
+];
+
 const corsOptions = {
-  origin: '*',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 };
 
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
 app.use(express.json());
 
-// Routes
+// Mount Routes (protect & adminOnly middleware are enforced inside complaintRoutes and notificationRoutes)
 app.use('/api/auth', authRoutes);
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Hostel Complaint Tracking API is running!' });

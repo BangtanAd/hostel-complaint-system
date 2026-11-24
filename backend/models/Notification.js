@@ -10,6 +10,7 @@ const notificationSchema = new mongoose.Schema(
     message: {
       type: String,
       required: true,
+      trim: true,
     },
     complaintId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -22,5 +23,8 @@ const notificationSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Speeds up fetching the latest notifications per user
+notificationSchema.index({ user: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

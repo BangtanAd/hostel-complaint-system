@@ -200,7 +200,11 @@ import { AppNotification, Complaint, User } from '../../models/types';
           >
             <div class="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <div class="flex items-center space-x-2">
+                <div class="flex flex-wrap items-center gap-2">
+                  <!-- Unique Tracking ID Badge -->
+                  <span class="px-2.5 py-0.5 text-xs font-mono font-bold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    {{ item.complaintId || ('HC-' + item._id.slice(-6).toUpperCase()) }}
+                  </span>
                   <span class="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-slate-100 text-slate-700">
                     {{ item.category }}
                   </span>
@@ -249,6 +253,72 @@ import { AppNotification, Complaint, User } from '../../models/types';
               <p class="text-xs text-indigo-800 mt-0.5">{{ item.adminNote }}</p>
             </div>
 
+            <!-- Status History Timeline -->
+            <div *ngIf="item.history?.length" class="pt-2 border-t border-slate-100 text-xs">
+              <details>
+                <summary class="cursor-pointer font-semibold text-slate-700 hover:text-indigo-600 select-none">
+                  Status History ({{ item.history!.length }})
+                </summary>
+                <ol class="mt-2 ml-2 border-l-2 border-indigo-200 pl-3 space-y-2">
+                  <li *ngFor="let h of item.history">
+                    <span class="font-bold text-slate-800">{{ h.status }}</span>
+                    <span class="text-slate-400 ml-1">• {{ h.timestamp | date:'short' }}</span>
+                    <p *ngIf="h.note" class="text-slate-600 mt-0.5">{{ h.note }}</p>
+                  </li>
+                </ol>
+              </details>
+            </div>
+
+            <!-- Student Resolution Feedback (Shown when Resolved) -->
+            <div *ngIf="item.status === 'Resolved'" class="pt-3 border-t border-slate-100">
+              <!-- Submitted Feedback Display -->
+              <div *ngIf="item.feedback?.rating" class="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 text-xs">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-emerald-900">Your Resolution Rating:</span>
+                  <span class="text-amber-500 font-bold text-sm">
+                    {{ '★'.repeat(item.feedback!.rating) }}<span class="text-slate-300">{{ '★'.repeat(5 - item.feedback!.rating) }}</span>
+                    <span class="text-slate-700 text-xs ml-1">({{ item.feedback!.rating }}/5)</span>
+                  </span>
+                </div>
+                <p *ngIf="item.feedback?.comment" class="text-slate-700 mt-1 italic">"{{ item.feedback!.comment }}"</p>
+              </div>
+
+              <!-- Rating Input Form -->
+              <div *ngIf="!item.feedback?.rating" class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold text-slate-700">Rate this resolution:</span>
+                  <div class="flex items-center space-x-1">
+                    <button
+                      type="button"
+                      *ngFor="let star of [1, 2, 3, 4, 5]"
+                      (click)="setRating(item._id, star)"
+                      [ngClass]="(ratingInputs[item._id] || 0) >= star ? 'text-amber-400' : 'text-slate-300'"
+                      class="text-xl leading-none hover:scale-110 transition-transform"
+                    >
+                      ★
+                    </button>
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    [(ngModel)]="commentInputs[item._id]"
+                    [name]="'comment-' + item._id"
+                    placeholder="Optional feedback on the fix..."
+                    class="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    (click)="sendFeedback(item)"
+                    [disabled]="!ratingInputs[item._id] || submittingFeedback[item._id]"
+                    class="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition disabled:opacity-40"
+                  >
+                    {{ submittingFeedback[item._id] ? 'Saving...' : 'Submit' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div class="pt-2 border-t border-slate-100 flex justify-between text-[11px] text-slate-400">
               <span>Submitted: {{ item.createdAt | date:'medium' }}</span>
               <span *ngIf="item.resolvedAt">Resolved: {{ item.resolvedAt | date:'medium' }}</span>
@@ -272,6 +342,10 @@ export class StudentDashboardComponent implements OnInit {
     priority: 'Medium',
     description: '',
   };
+
+  ratingInputs: { [complaintId: string]: number } = {};
+  commentInputs: { [complaintId: string]: string } = {};
+  submittingFeedback: { [complaintId: string]: boolean } = {};
 
   submitting = false;
   successMsg = '';
@@ -321,12 +395,37 @@ export class StudentDashboardComponent implements OnInit {
         this.submitting = false;
         this.complaints.unshift(created);
         this.form = { title: '', category: 'Wi-Fi', priority: 'Medium', description: '' };
-        this.successMsg = 'Complaint submitted! The hostel warden has been notified.';
+        this.successMsg = `Complaint ${created.complaintId} submitted! The hostel warden has been notified.`;
         this.cdr.detectChanges();
       },
       error: (err) => {
         this.submitting = false;
         this.errorMsg = err.error?.message || 'Failed to submit complaint.';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  setRating(complaintId: string, stars: number): void {
+    this.ratingInputs[complaintId] = stars;
+  }
+
+  sendFeedback(item: Complaint): void {
+    const rating = this.ratingInputs[item._id];
+    if (!rating) return;
+
+    this.submittingFeedback[item._id] = true;
+    const comment = this.commentInputs[item._id] || '';
+
+    this.complaintService.submitFeedback(item._id, rating, comment).subscribe({
+      next: (updated) => {
+        item.feedback = updated.feedback;
+        this.submittingFeedback[item._id] = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.submittingFeedback[item._id] = false;
+        alert(err.error?.message || 'Could not submit feedback.');
         this.cdr.detectChanges();
       },
     });

@@ -5,7 +5,7 @@ const { protect } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // @route   GET /api/notifications
-// @desc    Get notifications for logged-in user
+// @desc    Get latest 20 notifications for logged-in user
 router.get('/', protect, async (req, res) => {
   try {
     const notifications = await Notification.find({ user: req.user._id })
@@ -14,7 +14,10 @@ router.get('/', protect, async (req, res) => {
 
     res.json(notifications);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Fetch notifications error:', error);
+    res.status(500).json({
+      message: 'Something went wrong. Please try again later.',
+    });
   }
 });
 
@@ -34,7 +37,13 @@ router.put('/:id/read', protect, async (req, res) => {
 
     res.json(notification);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Mark notification read error:', error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid notification ID' });
+    }
+    res.status(500).json({
+      message: 'Something went wrong. Please try again later.',
+    });
   }
 });
 
@@ -49,7 +58,10 @@ router.put('/read-all', protect, async (req, res) => {
 
     res.json({ message: 'All notifications marked as read' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Mark all notifications read error:', error);
+    res.status(500).json({
+      message: 'Something went wrong. Please try again later.',
+    });
   }
 });
 

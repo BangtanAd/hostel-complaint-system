@@ -11,6 +11,7 @@ export interface User {
 
 export interface Complaint {
   _id: string;
+  complaintId?: string;
   student: {
     _id: string;
     name: string;
@@ -25,6 +26,17 @@ export interface Complaint {
   description: string;
   status: 'Submitted' | 'In Progress' | 'Resolved';
   adminNote: string;
+  history?: {
+    status: string;
+    note?: string;
+    updatedBy?: string;
+    timestamp: string | Date;
+  }[];
+  feedback?: {
+    rating: number;
+    comment?: string;
+    submittedAt?: string | Date;
+  };
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;

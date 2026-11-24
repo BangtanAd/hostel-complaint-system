@@ -11,7 +11,7 @@ const generateToken = (id) => {
 };
 
 // @route   POST /api/auth/register
-// @desc    Register a new student (or admin via secret code)
+// @desc    Register a new student (or admin via server-side secret)
 router.post('/register', async (req, res) => {
   try {
     const {
@@ -39,8 +39,19 @@ router.post('/register', async (req, res) => {
         .json({ message: 'An account with this email already exists' });
     }
 
-    // Assign role (if correct adminCode is passed, create admin; otherwise student)
-    const role = adminCode === 'WARDEN2026' ? 'admin' : 'student';
+    // Assign role securely using Render environment variable
+    let role = 'student';
+    if (adminCode) {
+      if (
+        !process.env.WARDEN_SECRET_CODE ||
+        adminCode !== process.env.WARDEN_SECRET_CODE
+      ) {
+        return res
+          .status(403)
+          .json({ message: 'Invalid or disabled warden registration code' });
+      }
+      role = 'admin';
+    }
 
     if (role === 'student' && (!rollNumber || !hostelBlock || !roomNumber)) {
       return res.status(400).json({

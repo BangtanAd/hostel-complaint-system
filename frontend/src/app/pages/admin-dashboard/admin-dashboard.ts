@@ -26,7 +26,7 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
             <!-- Export CSV Report -->
             <button
               (click)="exportCsv()"
-              class="hidden sm:inline-flex px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold transition"
+              class="inline-flex px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold transition"
             >
               Export CSV
             </button>
@@ -58,8 +58,9 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
                   </div>
                   <div
                     *ngFor="let n of notifications"
+                    (click)="markOneRead(n)"
                     [class.bg-indigo-50]="!n.isRead"
-                    class="p-3 text-xs"
+                    class="p-3 text-xs cursor-pointer hover:bg-slate-50 transition"
                   >
                     <p class="font-medium text-slate-800">{{ n.message }}</p>
                     <span class="text-[11px] text-slate-400">{{ n.createdAt | date:'short' }}</span>
@@ -119,60 +120,97 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
           </div>
         </section>
 
-        <!-- Filter & Search Controls -->
-        <section class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-3 items-center justify-between">
-          <div class="flex flex-wrap gap-3">
-            <select
-              [(ngModel)]="filterStatus"
-              (change)="loadComplaints()"
-              class="px-3.5 py-2 text-sm border border-slate-300 rounded-lg bg-white outline-none"
-            >
-              <option value="All">All Statuses</option>
-              <option value="Submitted">Submitted</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Resolved">Resolved</option>
-            </select>
+        <!-- Filter, Date-Range & Search Controls -->
+        <section class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          <div class="flex flex-wrap gap-3 items-center justify-between">
+            <div class="flex flex-wrap gap-3 items-center">
+              <select
+                [(ngModel)]="filterStatus"
+                (change)="loadComplaints()"
+                class="px-3.5 py-2 text-sm border border-slate-300 rounded-lg bg-white outline-none"
+              >
+                <option value="All">All Statuses</option>
+                <option value="Submitted">Submitted</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+              </select>
 
-            <select
-              [(ngModel)]="filterCategory"
-              (change)="loadComplaints()"
-              class="px-3.5 py-2 text-sm border border-slate-300 rounded-lg bg-white outline-none"
-            >
-              <option value="All">All Categories</option>
-              <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
-            </select>
-          </div>
+              <select
+                [(ngModel)]="filterCategory"
+                (change)="loadComplaints()"
+                class="px-3.5 py-2 text-sm border border-slate-300 rounded-lg bg-white outline-none"
+              >
+                <option value="All">All Categories</option>
+                <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+              </select>
 
-          <div class="flex gap-2 w-full sm:w-auto">
-            <input
-              type="text"
-              [(ngModel)]="searchText"
-              (keyup.enter)="loadComplaints()"
-              placeholder="Search title or issue..."
-              class="px-3.5 py-2 text-sm border border-slate-300 rounded-lg w-full sm:w-64 outline-none"
-            />
-            <button
-              (click)="loadComplaints()"
-              class="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700"
-            >
-              Filter
-            </button>
+              <!-- Date-Wise Report Filter -->
+              <div class="flex items-center gap-2 text-xs text-slate-600">
+                <label class="font-semibold">From:</label>
+                <input
+                  type="date"
+                  [(ngModel)]="dateFrom"
+                  (change)="applyDateFilter()"
+                  class="px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg bg-white outline-none"
+                />
+                <label class="font-semibold">To:</label>
+                <input
+                  type="date"
+                  [(ngModel)]="dateTo"
+                  (change)="applyDateFilter()"
+                  class="px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg bg-white outline-none"
+                />
+                <button
+                  *ngIf="dateFrom || dateTo"
+                  type="button"
+                  (click)="clearDates()"
+                  class="text-xs text-rose-600 hover:underline font-medium"
+                >
+                  Clear dates
+                </button>
+              </div>
+            </div>
+
+            <div class="flex gap-2 w-full sm:w-auto">
+              <input
+                type="text"
+                [(ngModel)]="searchText"
+                (keyup.enter)="loadComplaints()"
+                placeholder="Search ID (HC-...), title, issue..."
+                class="px-3.5 py-2 text-sm border border-slate-300 rounded-lg w-full sm:w-64 outline-none"
+              />
+              <button
+                (click)="loadComplaints()"
+                class="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700"
+              >
+                Filter
+              </button>
+            </div>
           </div>
         </section>
 
         <!-- Complaints Management List -->
         <section class="space-y-4">
-          <div *ngIf="complaints.length === 0" class="bg-white p-10 rounded-2xl border text-center text-slate-500 text-sm">
+          <div class="flex items-center justify-between text-xs text-slate-500 font-medium px-1">
+            <span>Showing {{ filteredComplaints.length }} complaint(s)</span>
+            <span *ngIf="dateFrom || dateTo">Date filter active</span>
+          </div>
+
+          <div *ngIf="filteredComplaints.length === 0" class="bg-white p-10 rounded-2xl border text-center text-slate-500 text-sm">
             No complaints match the current filters.
           </div>
 
           <div
-            *ngFor="let item of complaints"
+            *ngFor="let item of filteredComplaints"
             class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 grid grid-cols-1 lg:grid-cols-3 gap-6"
           >
             <!-- Left 2 Columns: Complaint Details -->
             <div class="lg:col-span-2 space-y-2.5">
               <div class="flex flex-wrap items-center gap-2">
+                <!-- Unique Tracking ID Badge -->
+                <span class="px-2.5 py-0.5 text-xs font-mono font-bold rounded bg-slate-900 text-white">
+                  {{ item.complaintId || ('HC-' + item._id.slice(-6).toUpperCase()) }}
+                </span>
                 <span class="px-2.5 py-0.5 text-xs font-bold rounded bg-indigo-50 text-indigo-700">
                   {{ item.category }}
                 </span>
@@ -194,6 +232,35 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
 
               <h3 class="text-lg font-bold text-slate-900">{{ item.title }}</h3>
               <p class="text-sm text-slate-600">{{ item.description }}</p>
+
+              <!-- Student Feedback Rating Display (if rated) -->
+              <div *ngIf="item.feedback?.rating" class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-emerald-900">Student Resolution Rating:</span>
+                  <span class="text-amber-500 font-bold text-sm">
+                    {{ '★'.repeat(item.feedback!.rating) }}<span class="text-slate-300">{{ '★'.repeat(5 - item.feedback!.rating) }}</span>
+                    <span class="text-slate-700 text-xs ml-1">({{ item.feedback!.rating }}/5)</span>
+                  </span>
+                </div>
+                <p *ngIf="item.feedback?.comment" class="text-slate-700 mt-1 italic">"{{ item.feedback!.comment }}"</p>
+              </div>
+
+              <!-- Status History Timeline -->
+              <div *ngIf="item.history?.length" class="pt-2 border-t border-slate-100 text-xs">
+                <details>
+                  <summary class="cursor-pointer font-semibold text-slate-700 hover:text-indigo-600 select-none">
+                    Status History ({{ item.history!.length }})
+                  </summary>
+                  <ol class="mt-2 ml-2 border-l-2 border-indigo-200 pl-3 space-y-2">
+                    <li *ngFor="let h of item.history">
+                      <span class="font-bold text-slate-800">{{ h.status }}</span>
+                      <span class="text-slate-400 ml-1">• {{ h.timestamp | date:'short' }}</span>
+                      <p *ngIf="h.note" class="text-slate-600 mt-0.5">{{ h.note }}</p>
+                    </li>
+                  </ol>
+                </details>
+              </div>
+
               <p class="text-xs text-slate-400">Logged on {{ item.createdAt | date:'medium' }}</p>
             </div>
 
@@ -237,6 +304,7 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
 export class AdminDashboardComponent implements OnInit {
   admin: User | null = null;
   complaints: Complaint[] = [];
+  filteredComplaints: Complaint[] = [];
   stats: ComplaintStats | null = null;
   notifications: AppNotification[] = [];
   showNotifications = false;
@@ -245,6 +313,8 @@ export class AdminDashboardComponent implements OnInit {
   filterStatus = 'All';
   filterCategory = 'All';
   searchText = '';
+  dateFrom = '';
+  dateTo = '';
 
   constructor(
     public auth: AuthService,
@@ -287,9 +357,31 @@ export class AdminDashboardComponent implements OnInit {
       .subscribe({
         next: (data) => {
           this.complaints = data;
-          this.cdr.detectChanges();
+          this.applyDateFilter();
         },
       });
+  }
+
+  applyDateFilter(): void {
+    this.filteredComplaints = this.complaints.filter((c) => {
+      const created = new Date(c.createdAt).getTime();
+      if (this.dateFrom) {
+        const fromTime = new Date(this.dateFrom + 'T00:00:00').getTime();
+        if (created < fromTime) return false;
+      }
+      if (this.dateTo) {
+        const toTime = new Date(this.dateTo + 'T23:59:59').getTime();
+        if (created > toTime) return false;
+      }
+      return true;
+    });
+    this.cdr.detectChanges();
+  }
+
+  clearDates(): void {
+    this.dateFrom = '';
+    this.dateTo = '';
+    this.applyDateFilter();
   }
 
   saveUpdate(item: Complaint): void {
@@ -308,12 +400,26 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   exportCsv(): void {
-    if (this.complaints.length === 0) {
+    if (this.filteredComplaints.length === 0) {
       alert('No complaints to export.');
       return;
     }
-    const headers = ['Title', 'Category', 'Priority', 'Status', 'Student', 'Roll No', 'Block', 'Room', 'Warden Note', 'Created At'];
-    const rows = this.complaints.map((c) => [
+    const headers = [
+      'Tracking ID',
+      'Title',
+      'Category',
+      'Priority',
+      'Status',
+      'Student',
+      'Roll No',
+      'Block',
+      'Room',
+      'Warden Note',
+      'Student Rating',
+      'Created At',
+    ];
+    const rows = this.filteredComplaints.map((c) => [
+      c.complaintId || `HC-${c._id.slice(-6).toUpperCase()}`,
       `"${(c.title || '').replace(/"/g, '""')}"`,
       c.category,
       c.priority,
@@ -323,6 +429,7 @@ export class AdminDashboardComponent implements OnInit {
       c.student?.hostelBlock || '',
       c.student?.roomNumber || '',
       `"${(c.adminNote || '').replace(/"/g, '""')}"`,
+      c.feedback?.rating ? `${c.feedback.rating}/5` : 'Not rated',
       new Date(c.createdAt).toLocaleString(),
     ]);
     const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -331,6 +438,15 @@ export class AdminDashboardComponent implements OnInit {
     link.href = URL.createObjectURL(blob);
     link.download = `hostel-complaints-report-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
+  }
+
+  markOneRead(n: AppNotification): void {
+    if (!n.isRead) {
+      this.complaintService.markAsRead(n._id).subscribe(() => {
+        n.isRead = true;
+        this.cdr.detectChanges();
+      });
+    }
   }
 
   markAllRead(): void {
