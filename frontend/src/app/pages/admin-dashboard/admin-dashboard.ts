@@ -126,7 +126,7 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
             <div class="flex flex-wrap gap-3 items-center">
               <select
                 [(ngModel)]="filterStatus"
-                (change)="loadComplaints()"
+                (ngModelChange)="applyFilters()"
                 class="px-3.5 py-2 text-sm border border-slate-300 rounded-lg bg-white outline-none"
               >
                 <option value="All">All Statuses</option>
@@ -137,7 +137,7 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
 
               <select
                 [(ngModel)]="filterCategory"
-                (change)="loadComplaints()"
+                (ngModelChange)="applyFilters()"
                 class="px-3.5 py-2 text-sm border border-slate-300 rounded-lg bg-white outline-none"
               >
                 <option value="All">All Categories</option>
@@ -145,29 +145,21 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
               </select>
 
               <!-- Date-Wise Report Filter -->
-              <div class="flex items-center gap-2 text-xs text-slate-600">
+              <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
                 <label class="font-semibold">From:</label>
                 <input
                   type="date"
                   [(ngModel)]="dateFrom"
-                  (change)="applyDateFilter()"
+                  (ngModelChange)="applyFilters()"
                   class="px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg bg-white outline-none"
                 />
                 <label class="font-semibold">To:</label>
                 <input
                   type="date"
                   [(ngModel)]="dateTo"
-                  (change)="applyDateFilter()"
+                  (ngModelChange)="applyFilters()"
                   class="px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg bg-white outline-none"
                 />
-                <button
-                  *ngIf="dateFrom || dateTo"
-                  type="button"
-                  (click)="clearDates()"
-                  class="text-xs text-rose-600 hover:underline font-medium"
-                >
-                  Clear dates
-                </button>
               </div>
             </div>
 
@@ -175,15 +167,17 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
               <input
                 type="text"
                 [(ngModel)]="searchText"
-                (keyup.enter)="loadComplaints()"
-                placeholder="Search ID (HC-...), title, issue..."
+                (ngModelChange)="applyFilters()"
+                placeholder="Search ID (HC-...), student, title..."
                 class="px-3.5 py-2 text-sm border border-slate-300 rounded-lg w-full sm:w-64 outline-none"
               />
               <button
-                (click)="loadComplaints()"
-                class="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700"
+                *ngIf="hasActiveFilters"
+                type="button"
+                (click)="resetFilters()"
+                class="px-3.5 py-2 bg-slate-200 text-slate-800 text-sm font-semibold rounded-lg hover:bg-slate-300 transition"
               >
-                Filter
+                Reset
               </button>
             </div>
           </div>
@@ -192,12 +186,20 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
         <!-- Complaints Management List -->
         <section class="space-y-4">
           <div class="flex items-center justify-between text-xs text-slate-500 font-medium px-1">
-            <span>Showing {{ filteredComplaints.length }} complaint(s)</span>
-            <span *ngIf="dateFrom || dateTo">Date filter active</span>
+            <span>Showing {{ filteredComplaints.length }} of {{ complaints.length }} complaint(s)</span>
+            <span *ngIf="hasActiveFilters" class="text-indigo-600 font-semibold">Filters active</span>
           </div>
 
-          <div *ngIf="filteredComplaints.length === 0" class="bg-white p-10 rounded-2xl border text-center text-slate-500 text-sm">
-            No complaints match the current filters.
+          <div *ngIf="filteredComplaints.length === 0" class="bg-white p-10 rounded-2xl border text-center text-slate-500 text-sm space-y-2">
+            <p>No complaints match the current filter.</p>
+            <button
+              *ngIf="hasActiveFilters"
+              type="button"
+              (click)="resetFilters()"
+              class="text-xs text-indigo-600 font-semibold hover:underline"
+            >
+              Clear all filters
+            </button>
           </div>
 
           <div
@@ -209,7 +211,7 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
               <div class="flex flex-wrap items-center gap-2">
                 <!-- Unique Tracking ID Badge -->
                 <span class="px-2.5 py-0.5 text-xs font-mono font-bold rounded bg-slate-900 text-white">
-                  {{ item.complaintId || ('HC-' + item._id.slice(-6).toUpperCase()) }}
+                  {{ getDisplayId(item) }}
                 </span>
                 <span class="px-2.5 py-0.5 text-xs font-bold rounded bg-indigo-50 text-indigo-700">
                   {{ item.category }}
@@ -225,7 +227,7 @@ import { AppNotification, Complaint, ComplaintStats, User } from '../../models/t
                   {{ item.priority }}
                 </span>
                 <span class="text-xs text-slate-500 font-medium">
-                  • {{ item.student?.name }} ({{ item.student?.rollNumber }}) —
+                  — {{ item.student?.name }} ({{ item.student?.rollNumber }}) —
                   <strong>{{ item.student?.hostelBlock }}, Room {{ item.student?.roomNumber }}</strong>
                 </span>
               </div>
@@ -331,6 +333,20 @@ export class AdminDashboardComponent implements OnInit {
     return this.notifications.filter((n) => !n.isRead).length;
   }
 
+  get hasActiveFilters(): boolean {
+    return (
+      this.filterStatus !== 'All' ||
+      this.filterCategory !== 'All' ||
+      this.searchText.trim() !== '' ||
+      this.dateFrom !== '' ||
+      this.dateTo !== ''
+    );
+  }
+
+  getDisplayId(item: Complaint): string {
+    return item.complaintId || `HC-${item._id.slice(-6).toUpperCase()}`;
+  }
+
   refreshAll(): void {
     this.loadComplaints();
     this.complaintService.getStats().subscribe({
@@ -348,22 +364,45 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   loadComplaints(): void {
-    this.complaintService
-      .getAllComplaints({
-        status: this.filterStatus,
-        category: this.filterCategory,
-        search: this.searchText,
-      })
-      .subscribe({
-        next: (data) => {
-          this.complaints = data;
-          this.applyDateFilter();
-        },
-      });
+    this.complaintService.getAllComplaints().subscribe({
+      next: (data) => {
+        this.complaints = data;
+        this.applyFilters();
+      },
+    });
   }
 
-  applyDateFilter(): void {
+  applyFilters(): void {
+    const query = this.searchText.trim().toLowerCase();
+
     this.filteredComplaints = this.complaints.filter((c) => {
+      if (this.filterStatus !== 'All' && c.status !== this.filterStatus) {
+        return false;
+      }
+
+      if (this.filterCategory !== 'All' && c.category !== this.filterCategory) {
+        return false;
+      }
+
+      if (query) {
+        const displayId = this.getDisplayId(c).toLowerCase();
+        const title = (c.title || '').toLowerCase();
+        const desc = (c.description || '').toLowerCase();
+        const studentName = (c.student?.name || '').toLowerCase();
+        const rollNumber = (c.student?.rollNumber || '').toLowerCase();
+        const room = (c.student?.roomNumber || '').toLowerCase();
+
+        const matchesSearch =
+          displayId.includes(query) ||
+          title.includes(query) ||
+          desc.includes(query) ||
+          studentName.includes(query) ||
+          rollNumber.includes(query) ||
+          room.includes(query);
+
+        if (!matchesSearch) return false;
+      }
+
       const created = new Date(c.createdAt).getTime();
       if (this.dateFrom) {
         const fromTime = new Date(this.dateFrom + 'T00:00:00').getTime();
@@ -373,15 +412,20 @@ export class AdminDashboardComponent implements OnInit {
         const toTime = new Date(this.dateTo + 'T23:59:59').getTime();
         if (created > toTime) return false;
       }
+
       return true;
     });
+
     this.cdr.detectChanges();
   }
 
-  clearDates(): void {
+  resetFilters(): void {
+    this.filterStatus = 'All';
+    this.filterCategory = 'All';
+    this.searchText = '';
     this.dateFrom = '';
     this.dateTo = '';
-    this.applyDateFilter();
+    this.applyFilters();
   }
 
   saveUpdate(item: Complaint): void {
@@ -392,67 +436,4 @@ export class AdminDashboardComponent implements OnInit {
       })
       .subscribe({
         next: () => {
-          alert(`Updated "${item.title}" to ${item.status} and notified ${item.student?.name}!`);
-          this.refreshAll();
-        },
-        error: () => alert('Failed to update complaint.'),
-      });
-  }
-
-  exportCsv(): void {
-    if (this.filteredComplaints.length === 0) {
-      alert('No complaints to export.');
-      return;
-    }
-    const headers = [
-      'Tracking ID',
-      'Title',
-      'Category',
-      'Priority',
-      'Status',
-      'Student',
-      'Roll No',
-      'Block',
-      'Room',
-      'Warden Note',
-      'Student Rating',
-      'Created At',
-    ];
-    const rows = this.filteredComplaints.map((c) => [
-      c.complaintId || `HC-${c._id.slice(-6).toUpperCase()}`,
-      `"${(c.title || '').replace(/"/g, '""')}"`,
-      c.category,
-      c.priority,
-      c.status,
-      `"${c.student?.name || ''}"`,
-      c.student?.rollNumber || '',
-      c.student?.hostelBlock || '',
-      c.student?.roomNumber || '',
-      `"${(c.adminNote || '').replace(/"/g, '""')}"`,
-      c.feedback?.rating ? `${c.feedback.rating}/5` : 'Not rated',
-      new Date(c.createdAt).toLocaleString(),
-    ]);
-    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `hostel-complaints-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-  }
-
-  markOneRead(n: AppNotification): void {
-    if (!n.isRead) {
-      this.complaintService.markAsRead(n._id).subscribe(() => {
-        n.isRead = true;
-        this.cdr.detectChanges();
-      });
-    }
-  }
-
-  markAllRead(): void {
-    this.complaintService.markAllAsRead().subscribe(() => {
-      this.notifications.forEach((n) => (n.isRead = true));
-      this.cdr.detectChanges();
-    });
-  }
-}
+          alert(`Updated "${item.title}" to ${item.status} and notified ${item.student?.name}!`); this.refreshAll(); }, error: (err) => { alert(err.error?.message \vert{}\vert{} 'Failed to update complaint.'); this.refreshAll(); }, }); }  exportCsv(): void { if (this.filteredComplaints.length === 0) { alert('No complaints to export.'); return; } const headers = [ 'Tracking ID', 'Title', 'Category', 'Priority', 'Status', 'Student', 'Roll No', 'Block', 'Room', 'Warden Note', 'Student Rating', 'Created At', ]; const rows = this.filteredComplaints.map((c) => [ this.getDisplayId(c), `"${(c.title || '').replace(/"/g
