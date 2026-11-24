@@ -435,5 +435,77 @@ export class AdminDashboardComponent implements OnInit {
         adminNote: item.adminNote,
       })
       .subscribe({
-        next: () => {
-          alert(`Updated "${item.title}" to ${item.status} and notified ${item.student?.name}!`); this.refreshAll(); }, error: (err) => { alert(err.error?.message \vert{}\vert{} 'Failed to update complaint.'); this.refreshAll(); }, }); }  exportCsv(): void { if (this.filteredComplaints.length === 0) { alert('No complaints to export.'); return; } const headers = [ 'Tracking ID', 'Title', 'Category', 'Priority', 'Status', 'Student', 'Roll No', 'Block', 'Room', 'Warden Note', 'Student Rating', 'Created At', ]; const rows = this.filteredComplaints.map((c) => [ this.getDisplayId(c), `"${(c.title || '').replace(/"/g
+        next: (updated) => {
+          Object.assign(item, updated);
+          this.applyFilters();
+          this.complaintService.getStats().subscribe({
+            next: (s) => {
+              this.stats = s;
+              this.cdr.detectChanges();
+            },
+          });
+          alert(`Updated "${item.title}" to ${item.status} and notified ${item.student?.name}!`);
+        },
+        error: (err) => {
+          alert(err.error?.message || 'Failed to update complaint.');
+        },
+      });
+  }
+
+  exportCsv(): void {
+    if (this.filteredComplaints.length === 0) {
+      alert('No complaints to export.');
+      return;
+    }
+    const headers = [
+      'Tracking ID',
+      'Title',
+      'Category',
+      'Priority',
+      'Status',
+      'Student',
+      'Roll No',
+      'Block',
+      'Room',
+      'Warden Note',
+      'Student Rating',
+      'Created At',
+    ];
+    const rows = this.filteredComplaints.map((c) => [
+      this.getDisplayId(c),
+      `"${(c.title || '').replace(/"/g, '""')}"`,
+      c.category,
+      c.priority,
+      c.status,
+      `"${c.student?.name || ''}"`,
+      c.student?.rollNumber || '',
+      c.student?.hostelBlock || '',
+      c.student?.roomNumber || '',
+      `"${(c.adminNote || '').replace(/"/g, '""')}"`,
+      c.feedback?.rating ? `${c.feedback.rating}/5` : 'Not rated',
+      new Date(c.createdAt).toLocaleString(),
+    ]);
+    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `hostel-complaints-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  }
+
+  markOneRead(n: AppNotification): void {
+    if (!n.isRead) {
+      this.complaintService.markAsRead(n._id).subscribe(() => {
+        n.isRead = true;
+        this.cdr.detectChanges();
+      });
+    }
+  }
+
+  markAllRead(): void {
+    this.complaintService.markAllAsRead().subscribe(() => {
+      this.notifications.forEach((n) => (n.isRead = true));
+      this.cdr.detectChanges();
+    });
+  }
+}

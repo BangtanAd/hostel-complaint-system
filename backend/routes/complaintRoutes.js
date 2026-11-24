@@ -227,12 +227,11 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
     const resolved = await Complaint.countDocuments({ status: 'Resolved' });
 
     const byCategory = await Complaint.aggregate([
-      { $group: { _id: '$category', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
+      { $group: { _id: '$category', count: { $sum: 1 } } }, {$sort: { count: -1 } },
     ]);
 
     const byPriority = await Complaint.aggregate([
-      { $group: { _id: '$priority', count: { $sum: 1 } } },
+      { $group: { _id: '$priority', count: {$sum: 1 } } },
     ]);
 
     res.json({
@@ -269,9 +268,9 @@ router.get('/', protect, adminOnly, async (req, res) => {
     if (search && typeof search === 'string' && search.trim()) {
       const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filter.$or = [
-        { complaintId: { $regex: escapedSearch, $options: 'i' } },
-        { title: { $regex: escapedSearch, $options: 'i' } },
-        { description: { $regex: escapedSearch, $options: 'i' } },
+        { complaintId: { $regex: escapedSearch,$options: 'i' } },
+        { title: { $regex: escapedSearch,$options: 'i' } },
+        { description: { $regex: escapedSearch,$options: 'i' } },
       ];
     }
 
@@ -301,15 +300,11 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
         return res.status(400).json({ message: 'Invalid complaint status' });
       }
 
-      if (complaint.status === 'Resolved' && status !== 'Resolved') {
-        return res.status(400).json({
-          message: 'Resolved complaints cannot be moved back to an open status',
-        });
-      }
-
       complaint.status = status;
-      if (status === 'Resolved' && !complaint.resolvedAt) {
-        complaint.resolvedAt = new Date();
+      if (status === 'Resolved') {
+        if (!complaint.resolvedAt) complaint.resolvedAt = new Date();
+      } else {
+        complaint.resolvedAt = undefined;
       }
     }
 
@@ -317,6 +312,10 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
       typeof adminNote === 'string' ? adminNote.trim() : undefined;
     if (cleanNote !== undefined) {
       complaint.adminNote = cleanNote;
+    }
+
+    if (!Array.isArray(complaint.history)) {
+      complaint.history = [];
     }
 
     complaint.history.push({
