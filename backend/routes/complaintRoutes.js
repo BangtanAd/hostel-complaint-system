@@ -19,12 +19,6 @@ const ALLOWED_CATEGORIES = [
 const ALLOWED_PRIORITIES = ['Low', 'Medium', 'High'];
 const ALLOWED_STATUSES = ['Submitted', 'In Progress', 'Resolved'];
 
-const STATUS_ORDER = {
-  Submitted: 1,
-  'In Progress': 2,
-  Resolved: 3,
-};
-
 function generateComplaintId() {
   const randomDigits = Math.floor(100000 + Math.random() * 900000);
   return `HC-${randomDigits}`;
@@ -98,15 +92,19 @@ router.post('/', protect, async (req, res) => {
     }
 
     // Notify all admins about the new complaint
-    const admins = await User.find({ role: 'admin' });
-    const adminNotifications = admins.map((admin) => ({
-      user: admin._id,
-      message: `[${trackingId}] New ${category} complaint from ${req.user.name} (${req.user.hostelBlock} - Room ${req.user.roomNumber}): "${cleanTitle}"`,
-      complaintId: complaint._id,
-    }));
+    try {
+      const admins = await User.find({ role: 'admin' });
+      const adminNotifications = admins.map((admin) => ({
+        user: admin._id,
+        message: `[${trackingId}] New ${category} complaint from ${req.user.name} (${req.user.hostelBlock} - Room ${req.user.roomNumber}): "${cleanTitle}"`,
+        complaintId: complaint._id,
+      }));
 
-    if (adminNotifications.length > 0) {
-      await Notification.insertMany(adminNotifications);
+      if (adminNotifications.length > 0) {
+        await Notification.insertMany(adminNotifications);
+      }
+    } catch (notifErr) {
+      console.error('Admin notification creation failed:', notifErr);
     }
 
     const populatedComplaint = await Complaint.findById(complaint._id).populate(
@@ -303,9 +301,9 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
         return res.status(400).json({ message: 'Invalid complaint status' });
       }
 
-      if (STATUS_ORDER[status] < STATUS_ORDER[complaint.status]) {
+      if (complaint.status === 'Resolved' && status !== 'Resolved') {
         return res.status(400).json({
-          message: `Cannot move complaint backwards from ${complaint.status} to ${status}`,
+          message: 'Resolved complaints cannot be moved back to an open status',
         });
       }
 
@@ -345,13 +343,20 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
       }
     }
 
-    await Notification.create({
-      user: complaint.student,
-      message: `[${complaint.complaintId}] Your complaint "${complaint.title}" is now marked as ${complaint.status}.${
-        cleanNote ? ` Warden Note: "${cleanNote}"` : ''
-      }`,
-      complaintId: complaint._id,
-    });
+    // Isolate notification creation so a legacy record never breaks status updates
+    if (complaint.student) {
+      try {
+        await Notification.create({
+          user: complaint.student,
+          message: `[${complaint.complaintId}] Your complaint "${complaint.title}" is now marked as ${complaint.status}.${
+            cleanNote ? ` Warden Note: "${cleanNote}"` : ''
+          }`,
+          complaintId: complaint._id,
+        });
+      } catch (notifErr) {
+        console.error('Student notification creation failed:', notifErr);
+      }
+    }
 
     const populated = await Complaint.findById(complaint._id).populate(
       'student',

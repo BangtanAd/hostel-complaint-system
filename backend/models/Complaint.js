@@ -2,10 +2,25 @@ const mongoose = require('mongoose');
 
 const historySchema = new mongoose.Schema(
   {
-    status: { type: String, required: true },
-    note: { type: String, default: '' },
-    updatedBy: { type: String, default: 'System' },
-    timestamp: { type: Date, default: Date.now },
+    status: {
+      type: String,
+      enum: ['Submitted', 'In Progress', 'Resolved'],
+      required: true,
+    },
+    note: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    updatedBy: {
+      type: String,
+      trim: true,
+      default: 'System',
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { _id: false }
 );
@@ -15,6 +30,8 @@ const complaintSchema = new mongoose.Schema(
     complaintId: {
       type: String,
       unique: true,
+      sparse: true,
+      trim: true,
     },
     student: {
       type: mongoose.Schema.Types.ObjectId,
@@ -29,6 +46,7 @@ const complaintSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
+      trim: true,
     },
     priority: {
       type: String,
@@ -38,6 +56,7 @@ const complaintSchema = new mongoose.Schema(
     description: {
       type: String,
       required: true,
+      trim: true,
     },
     status: {
       type: String,
@@ -46,6 +65,7 @@ const complaintSchema = new mongoose.Schema(
     },
     adminNote: {
       type: String,
+      trim: true,
       default: '',
     },
     resolvedAt: {
@@ -56,9 +76,19 @@ const complaintSchema = new mongoose.Schema(
       default: [],
     },
     feedback: {
-      rating: { type: Number, min: 1, max: 5 },
-      comment: { type: String, default: '' },
-      submittedAt: { type: Date },
+      rating: {
+        type: Number,
+        min: 1,
+        max: 5,
+      },
+      comment: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      submittedAt: {
+        type: Date,
+      },
     },
   },
   { timestamps: true }
